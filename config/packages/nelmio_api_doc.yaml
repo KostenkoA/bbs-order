@@ -1,0 +1,12 @@
+nelmio_api_doc:
+  documentation:
+    info:
+      title: Baby shop order api
+      version: 0.0.1
+  areas:
+    default:
+      path_patterns:
+        - ^(?!/api/order)
+    public_stage:
+      path_patterns:
+        - ^/api/order/public

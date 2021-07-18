@@ -1,0 +1,4 @@
+main:
+  resource: '../routes.yaml'
+  name_prefix: api_order
+  prefix: /api/order

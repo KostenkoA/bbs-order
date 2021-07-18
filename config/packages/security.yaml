@@ -1,0 +1,43 @@
+security:
+  # https://symfony.com/doc/current/security.html#where-do-users-come-from-user-providers
+  providers:
+    jwt:
+      lexik_jwt:
+        class: App\Security\User
+  firewalls:
+    dev:
+      pattern: ^/(_(profiler|wdt)|css|images|js)/
+      security: false
+    order_anon:
+      methods: [POST]
+      pattern: ^/(api/order/|)(public/anon/order)
+      security: false
+    order:
+      pattern:   ^/(api/order/|)(public/order)
+      stateless: true
+      guard:
+        authenticators:
+          - lexik_jwt_authentication.jwt_token_authenticator
+    card:
+      pattern: ^/(api/order/|)(public/card)
+      stateless: true
+      guard:
+        authenticators:
+          - lexik_jwt_authentication.jwt_token_authenticator
+    subscription:
+      pattern: ^/(api/order/|)(public/subscription)
+      stateless: true
+      guard:
+        authenticators:
+          - lexik_jwt_authentication.jwt_token_authenticator
+    admin:
+      pattern:   ^/(api/order/|)(admin)
+      stateless: true
+      guard:
+        authenticators:
+          - lexik_jwt_authentication.jwt_token_authenticator
+  access_control:
+    - { path: ^/(api/order/|)public/card, roles: ROLE_USER }
+    - { path: ^/(api/order/|)public/subscription, roles: ROLE_USER }
+    - { path: ^/(api/order/|)public/order, roles: ROLE_USER }
+    - { path: ^/(api/order/|)admin, roles: [ROLE_ORDER_MANAGER, ROLE_ADMIN] }

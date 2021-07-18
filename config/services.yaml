@@ -1,0 +1,375 @@
+imports:
+  - { resource: ./services/payment.yaml }
+
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices/configuration.html#application-related-configuration
+parameters:
+  app_env: '%env(APP_ENV)%'
+  amazon_s3.key: '%env(AMAZON_S3_KEY)%'
+  amazon_s3.secret: '%env(AMAZON_S3_SECRET)%'
+  amazon_s3.region: '%env(AMAZON_S3_REGION)%'
+  product-search.url: '%env(PRODUCT_SEARCH_DNS)%'
+  basket-service.url: '%env(BASKET_SERVICE_DNS)%'
+  user-service.url: '%env(USER_SERVICE_DNS)%'
+  delivery-service.url: '%env(DELIVERY_SERVICE_DNS)%'
+  locale: 'ru'
+  sentry_dsn: '%env(SENTRY_DSN)%'
+  alowed_project_match: '/^[a-zA-Z0-9\-.]{1,25}$/i'
+  enqueue_events_queue: '%app_env%-bbs-order-internal-events'
+
+  ###> Delivery Component configs ###
+  delivery.carrier.without-carrier: null
+  delivery.carrier.default-carrier: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_DEFAULT_CARRIER
+  delivery.carrier.meest-express: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_MEEST_EXPRESS
+  delivery.carrier.nova-poshta: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_NOVA_POSHTA
+  delivery.carrier.easy-post: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_EASY_POST
+  delivery.carrier.smart-post: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_SMART_POST
+  delivery.carrier.justin: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_JUSTIN
+  delivery.carrier.ipost: !php/const App\Entity\DeliveryCarrierInterface::CARRIER_IPOST
+  ###< Delivery Component configs ###
+
+  ###> eSputnik Component configs ###
+  e_sputnik_url: '%env(E_SPUTNIK_URL)%'
+  e_sputnik_oauth_data:
+    user_name: '%env(E_SPUTNIK_USER_NAME)%'
+    password: '%env(E_SPUTNIK_PASSWORD)%'
+  product_base_url: '%env(PRODUCT_BASE_URL)%'
+  product_image_base_url: '%env(PRODUCT_IMAGE_BASE_URL)%'
+  ###< eSputnik Component configs ###
+
+services:
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true      # Automatically injects dependencies in your services.
+    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+    public: false       # Allows optimizing the container by removing unused services; this also means
+    # fetching services directly from the container via $container->get() won't work.
+    # The best practice is to be explicit about your dependencies anyway.
+    bind:
+      App\Interfaces\OrderSend1CInterface: '@App\Producer\Order1CProducer'
+
+  # makes classes in src/ available to be used as services
+  # this creates a service per class whose id is the fully-qualified class name
+  App\:
+    resource: '../src/*'
+    exclude: '../src/{DependencyInjection,Entity,Migrations,Tests,Kernel.php,Component/Payment/*}'
+
+  # controllers are imported separately to make sure services can be injected
+  # as action arguments even if you don't extend any base controller class
+  App\Controller\:
+    resource: '../src/Controller'
+    tags: [ 'controller.service_arguments' ]
+
+  # add more service definitions when explicit configuration is needed
+  # please note that last definitions always *replace* previous ones
+
+
+  ###> custom async events processor ###
+  enqueue.events.async_processor:
+    class: 'App\Processor\AsyncEventProcessor'
+    public: true
+    arguments:
+      $logger: '@custom.monolog.logger'
+      $registry: '@enqueue.events.registry'
+      $dispatcher: '@enqueue.events.event_dispatcher'
+    tags:
+      - { name: 'enqueue.client.processor', topicName: '__command__', processorName: '%enqueue_events_queue%', queueName: '%enqueue_events_queue%', queueNameHardcoded: true, exclusive: true }
+
+  enqueue.events.base64_transformer:
+    class: 'App\AsyncEventTransformer\SerializeBase64Transformer'
+    public: public
+    arguments:
+      - '@enqueue.events.context'
+    tags:
+      - { name: 'enqueue.event_transformer', eventName: '/(.*)?/', transformerName: 'base_64_php_serializer' }
+  ###> custom async events processor ###
+
+  App\Serializer\ResponseNormalizer:
+    autoconfigure: false
+    arguments:
+      - '@Symfony\Component\Serializer\Normalizer\NormalizerInterface'
+
+  ###< entity listeners ###
+  App\EventListener\EntityListener\CartListener:
+    tags:
+      - { name: doctrine.event_listener, event: preRemove, method: preRemove}
+  ###> entity listeners ###
+
+  App\EventListener\JsonRequestTransformerListener:
+    tags:
+      - { name: kernel.event_listener, event: kernel.request }
+
+  App\EventListener\OrderESputnikListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.order.1c-sent, method: sendNewOrder, priority: 10 }
+
+  App\EventListener\Order1CListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.order.prepared, method: sendNewOrder, priority: 20 }
+
+  App\EventListener\OrderStatusHistoryListener:
+    tags:
+      - { name: kernel.event_listener, event: app.order.status-changed, method: insert, priority: 10 }
+      - { name: kernel.event_listener, event: app.order.status-error, method: insertError, priority: 10 }
+
+  App\EventListener\OrderPrepareListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.order.new, method: prepareNewOrder, priority: 20 }
+
+  App\EventListener\EmailListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.order.prepared, method: sendNew, priority: 10 }
+
+  App\EventListener\SmsListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.order.prepared, method: sendNewOrderNotification, priority: 10 }
+      - { name: kernel.event_listener, event: app.subscription.pre-order-notification, method: sendSubscriptionPreOrder, priority: 10 }
+
+  App\EventListener\UserListener:
+    tags:
+      - { name: kernel.event_listener, event: app.user.registration, method: register, priority: 10 }
+      - { name: kernel.event_listener, event: app.user.send-for-attach, method: sendForAttach, priority: 10 }
+
+  App\EventListener\OrderFromSubscriptionListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.subscription.create-order, method: createOrderForDate, priority: 10 }
+
+  App\EventListener\OrderPaymentByCardListener:
+    tags:
+      - { async: true, name: kernel.event_listener, event: app.order.payment-by-card, method: onPaymentByCard, priority: 10 }
+
+  AnnotationLoader:
+    class: Symfony\Component\Serializer\Mapping\Loader\AnnotationLoader
+    arguments:
+      - !service
+        class: Doctrine\Common\Annotations\AnnotationReader
+
+  #  PropertyTypeExtractorInterface
+
+  ClassMetadataFactory:
+    class: Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactory
+    arguments: [ '@AnnotationLoader' ]
+
+  snake.converter:
+    class: Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter
+
+  snake.normalizer:
+    autoconfigure: false
+    class: Symfony\Component\Serializer\Normalizer\ObjectNormalizer
+    arguments:
+      $classMetadataFactory: '@ClassMetadataFactory'
+      $nameConverter: '@snake.converter'
+      $propertyAccessor: '@Symfony\Component\PropertyAccess\PropertyAccessorInterface'
+      $propertyTypeExtractor: '@Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface'
+      $classDiscriminatorResolver: '@Symfony\Component\Serializer\Mapping\ClassDiscriminatorResolverInterface'
+
+  json.converter:
+    autoconfigure: false
+    class: Symfony\Component\Serializer\Encoder\JsonEncoder
+
+  json.serializable.normalizer:
+    autoconfigure: false
+    class: Symfony\Component\Serializer\Normalizer\JsonSerializableNormalizer
+
+  json.array.normalizer:
+    autoconfigure: false
+    class: Symfony\Component\Serializer\Normalizer\ArrayDenormalizer
+
+  json.snake.serializer:
+    autoconfigure: false
+    class: Symfony\Component\Serializer\Serializer
+    arguments:
+      $normalizers:
+        - '@json.serializable.normalizer'
+        - '@snake.normalizer'
+        - '@json.array.normalizer'
+      $encoders:
+        - '@json.converter'
+
+  ###> Product Search Component ###
+  App\Component\Product\Request\ProductSearchRequest:
+    arguments:
+      $dsn: '%product-search.url%'
+
+  product-search.locator:
+    class: Symfony\Component\DependencyInjection\ServiceLocator
+    arguments:
+      - App\Component\Product\Request\ProductSearchRequest: '@App\Component\Product\Request\ProductSearchRequest'
+
+  App\Component\Product\ProductSearchComponent:
+    arguments:
+      $requestLocator: '@product-search.locator'
+  ###< Product Search Component ###
+
+  ###> Basket Component ###
+  App\Component\Basket\CalculateBasketRequest:
+    arguments:
+      $dsn: '%basket-service.url%'
+  ###< Basket Component ###
+
+  ###> User service Component ###
+
+  App\Component\UserService\Request\RegistrationRequest:
+    arguments:
+      $dsn: '%user-service.url%'
+
+  App\Component\UserService\Request\BonusProfileRequest:
+    arguments:
+      $dsn: '%user-service.url%'
+      $serializer: '@json.snake.serializer'
+
+  user.service.locator:
+    class: Symfony\Component\DependencyInjection\ServiceLocator
+    arguments:
+      - App\Component\UserService\Request\RegistrationRequest: '@App\Component\UserService\Request\RegistrationRequest'
+        App\Component\UserService\Request\BonusProfileRequest: '@App\Component\UserService\Request\BonusProfileRequest'
+
+  App\Component\UserService\UserServiceComponent:
+    arguments:
+      $requestLocator: '@user.service.locator'
+  ###< User service Component ###
+
+  #Producers
+  App\Producer\Order1CProducer:
+    arguments:
+      $context: '@enqueue.transport.default.context'
+      $env: '%app_env%'
+
+  App\Producer\SendNotificationProducer:
+    arguments:
+      $context: '@enqueue.transport.default.context'
+      $env: '%app_env%'
+
+  App\Producer\UserHasItemProducer:
+    arguments:
+      $context: '@enqueue.transport.default.context'
+      $env: '%app_env%'
+
+  App\Producer\UserProducer:
+    arguments:
+      $context: '@enqueue.transport.default.context'
+      $env: '%app_env%'
+
+  GuzzleHttp\ClientInterface:
+    class: GuzzleHttp\Client
+
+  App\Service\PaymentService:
+    arguments:
+      $defaultPaymentMethod: '%payment.method.fondy%'
+
+
+  ###> custom monolog logger ###
+  raven.handler:
+    class: Monolog\Handler\RavenHandler
+    arguments:
+      $ravenClient: '@sentry.client'
+      $level: error
+
+  custom.monolog.logger:
+    class: Monolog\Logger
+    autowire: false
+    arguments:
+      - 'sentry'
+      - { 'raven': '@raven.handler' }
+  ###< custom monolog logger ###
+
+  App\Processor\OrderStatusProcessor:
+    arguments:
+      $logger: '@custom.monolog.logger'
+
+  App\Processor\UserHasItemProcessor:
+    arguments:
+      $logger: '@custom.monolog.logger'
+
+  App\Processor\OrderStatusErrorProcessor:
+    arguments:
+      $logger: '@custom.monolog.logger'
+
+  App\Processor\OrderAttachByPhoneProcessor:
+    arguments:
+      $logger: '@custom.monolog.logger'
+
+  App\Component\Notification\Builder\EmailBuilder:
+    arguments:
+      $locale: '%locale%'
+
+  App\Component\Notification\Builder\SmsBuilder:
+    arguments:
+      $locale: '%locale%'
+
+  ###> Delivery Component configs ###
+  App\Component\Delivery\Factory\DeliveryCarrierFactory:
+    arguments:
+      $enableCarriers:
+        {
+          '%delivery.carrier.without-carrier%': '@App\Component\Delivery\Carrier\WithoutCarrier',
+          '%delivery.carrier.default-carrier%': '@App\Component\Delivery\Carrier\DefaultCarrier',
+          '%delivery.carrier.meest-express%': '@App\Component\Delivery\Carrier\MeestExpress',
+          '%delivery.carrier.nova-poshta%': '@App\Component\Delivery\Carrier\NovaPoshta',
+          '%delivery.carrier.easy-post%': '@App\Component\Delivery\Carrier\EasyPost',
+          '%delivery.carrier.smart-post%': '@App\Component\Delivery\Carrier\SmartPost',
+          '%delivery.carrier.justin%': '@App\Component\Delivery\Carrier\Justin',
+          '%delivery.carrier.ipost%': '@App\Component\Delivery\Carrier\IPost'
+        }
+
+  App\Component\Delivery\Carrier\DefaultCarrier:
+    arguments:
+      $freeDeliveryOrderPrice: 500
+      $deliveryPrice: '%env(float:DELIVERY_PRICE_DEFAULT_CARRIER)%'
+
+  App\Component\Delivery\Carrier\NovaPoshta:
+    arguments:
+      $deliveryPrice: '%env(float:DELIVERY_PRICE_NOVA_POSHTA)%'
+
+  App\Component\Delivery\Carrier\Justin:
+    arguments:
+      $deliveryPrice: '%env(float:DELIVERY_PRICE_JUSTIN)%'
+
+  App\Component\Delivery\Carrier\IPost:
+    arguments:
+      $deliveryPrice: '%env(float:DELIVERY_PRICE_IPOST)%'
+  ###< Delivery Component configs ###
+
+  ###> Delivery Component ###
+  App\Component\Delivery\Request\WarehouseSearchRequest:
+    arguments:
+      $dsn: '%delivery-service.url%'
+
+  App\Component\Delivery\Request\StreetSearchRequest:
+    arguments:
+      $dsn: '%delivery-service.url%'
+
+  delivery.service.locator:
+    class: Symfony\Component\DependencyInjection\ServiceLocator
+    arguments:
+      - App\Component\Delivery\Request\WarehouseSearchRequest: '@App\Component\Delivery\Request\WarehouseSearchRequest'
+        App\Component\Delivery\Request\StreetSearchRequest: '@App\Component\Delivery\Request\StreetSearchRequest'
+
+  App\Component\Delivery\DeliveryComponent:
+    arguments:
+      $requestLocator: '@delivery.service.locator'
+  ###< Delivery Component ###
+
+  ###> eSputnik Component ###
+  App\Component\ESputnik\Builder\OrderBuilder:
+    arguments:
+      $productBaseUrl: '%product_base_url%'
+      $productImageBaseUrl: '%product_image_base_url%'
+
+  App\Component\ESputnik\Action\SendOrdersAction:
+    arguments:
+      $dsn: '%e_sputnik_url%'
+      $oauthData: '%e_sputnik_oauth_data%'
+
+  e-sputnik.locator:
+    class: Symfony\Component\DependencyInjection\ServiceLocator
+    arguments:
+      - App\Component\ESputnik\Action\SendOrdersAction: '@App\Component\ESputnik\Action\SendOrdersAction'
+
+  App\Component\ESputnik\ESputnikComponent:
+    arguments:
+      $actionLocator: '@e-sputnik.locator'
+  ###< eSputnik Component ###

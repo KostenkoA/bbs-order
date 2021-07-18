@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- https://phpunit.de/manual/current/en/appendixes.configuration.html -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://schema.phpunit.de/6.5/phpunit.xsd"
+         backupGlobals="false"
+         colors="true"
+         bootstrap="tests/Bootstrap.php"
+>
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <env name="KERNEL_CLASS" value="App\Kernel"/>
+        <env name="APP_ENV" value="test"/>
+        <env name="APP_DEBUG" value="1"/>
+        <env name="APP_SECRET" value="10d188878e385df2ee3297408b604650"/>
+        <env name="SHELL_VERBOSITY" value="-1"/>
+        <env name="KERNEL_CLASS" value="App\Kernel"/>
+        <env name="DATABASE_URL" value="mysql://root:@mysql-all:3306/bbsorder_test"/>
+        <env name="ALLOW_HEADERS" value=""/>
+        <env name="ALLOW_ORIGIN" value=""/>
+        <env name="CORS_ALLOW_ORIGIN" value=""/>
+        <env name="ENQUEUE_DSN_REDIS" value="redis://redis?vendor=predis"/>
+        <env name="JWT_SECRET_KEY" value="%kernel.project_dir%/config/jwt/private.pem"/>
+        <env name="JWT_PUBLIC_KEY" value="%kernel.project_dir%/config/jwt/public.pem"/>
+        <env name="JWT_PASSPHRASE" value="85cf3f142a5d961e5b9bdff56c333be8"/>
+        <env name="FONDY_MERCHANT" value="1396424"/>
+        <env name="FONDY_PASSWORD" value="test"/>
+        <env name="FONDY_BASE_URI" value="https://api.fondy.eu"/>
+        <env name="FONDY_RESPONSE_URL" value="http://127.0.0.1/public/payment/checkout/%s"/>
+        <env name="FONDY_CALLBACK_URL" value="http://127.0.0.1/public/payment/checkout/%s"/>
+        <env name="SYMFONY_DEPRECATIONS_HELPER" value="/Remaining deprecation notices .*/"/>
+    </php>
+
+    <testsuites>
+        <testsuite name="Project Test Suite">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <filter>
+        <whitelist>
+            <directory>src</directory>
+        </whitelist>
+    </filter>
+
+    <listeners>
+        <listener class="Symfony\Bridge\PhpUnit\SymfonyTestsListener"/>
+    </listeners>
+</phpunit>

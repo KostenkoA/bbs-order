@@ -1,0 +1,3 @@
+# The newline at the end of this file is extremely important.  Cron won't run without it.
+0 9 * * * . /opt/elasticbeanstalk/support/envvars; /var/app/current/bin/console subscription:create-order
+10 9 * * * . /opt/elasticbeanstalk/support/envvars; /var/app/current/bin/console subscription:send-notification

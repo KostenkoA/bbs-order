@@ -1,0 +1,126 @@
+parameters:
+  payment.method.fondy: !php/const App\Entity\PaymentMethodInterface::FONDY_METHOD
+  fondy.action.new-payment: !php/const App\Component\Payment\Method\Fondy::LOCATOR_ACTION_NEW_PAYMENT
+  fondy.action.payment-by-token: !php/const App\Component\Payment\Method\Fondy::LOCATOR_ACTION_NEW_PAYMENT_BY_TOKEN
+  fondy.action.check-payment: !php/const App\Component\Payment\Method\Fondy::LOCATOR_ACTION_CHECK_PAYMENT
+  fondy.locator.type.request: !php/const App\Component\Payment\Method\Fondy::LOCATOR_TYPE_REQUEST
+  fondy.locator.type.model: !php/const App\Component\Payment\Method\Fondy::LOCATOR_TYPE_MODEL
+  fondy.locator.type.handler: !php/const App\Component\Payment\Method\Fondy::LOCATOR_TYPE_HANDLER
+
+  fondy.merchant: '%env(FONDY_MERCHANT)%'
+  fondy.pass: '%env(FONDY_PASSWORD)%'
+  fondy.base_uri: '%env(FONDY_BASE_URI)%'
+  fondy.response_url: '%env(FONDY_RESPONSE_URL)%'
+  fondy.callback_url: '%env(FONDY_CALLBACK_URL)%'
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  # makes classes in src/ available to be used as services
+  # this creates a service per class whose id is the fully-qualified class name
+  App\Component\Payment\:
+    resource: '%kernel.project_dir%/src/Component/Payment/*'
+
+  App\Component\Payment\PaymentComponent:
+    arguments:
+      $serviceLocator: '@payment.methods.locator'
+      $availableMethods:
+        '%payment.method.fondy%': 'App\Component\Payment\Method\Fondy'
+
+  payment.methods.locator:
+    class: Symfony\Component\DependencyInjection\ServiceLocator
+    arguments:
+      - App\Component\Payment\Method\Fondy: '@App\Component\Payment\Method\Fondy'
+
+  # Fondy payment
+  App\Component\Payment\Method\Fondy:
+    arguments:
+      $locator: '@fondy.locator'
+      $builder: '@App\Component\Payment\Fondy\ModelBuilder'
+
+  App\Component\Payment\Fondy\Model\AbstractModel:
+    class: App\Component\Payment\Fondy\Model\AbstractModel
+    autoconfigure: false
+    arguments:
+      $normalizer: '@snake.normalizer'
+      $password: '%fondy.pass%'
+      $merchantId: '%fondy.merchant%'
+
+  App\Component\Payment\Fondy\Request\RequestAbstract:
+    class: App\Component\Payment\Fondy\Request\RequestAbstract
+    autoconfigure: false
+    arguments:
+      $baseUri: '%fondy.base_uri%'
+      $normalizer: '@snake.normalizer'
+
+
+  ###> new payment ###
+  fondy.request-model.new-payment:
+    class: App\Component\Payment\Fondy\Model\PaymentModel
+    parent: App\Component\Payment\Fondy\Model\AbstractModel
+    public: true
+    autowire: true
+    autoconfigure: false
+    arguments:
+      $publicCallbackUrl: '%fondy.response_url%'
+      $serverCallbackUrl: '%fondy.callback_url%'
+      $currency: 'UAH'
+
+  fondy.request.new-payment:
+    parent: App\Component\Payment\Fondy\Request\RequestAbstract
+    class: App\Component\Payment\Fondy\Request\PaymentRequest
+    public: true
+    autowire: true
+    autoconfigure: false
+  ###< new payment ###
+
+  ###> check payment ###
+  fondy.request-model.check-payment:
+    class: App\Component\Payment\Fondy\Model\CheckoutModel
+    parent: App\Component\Payment\Fondy\Model\AbstractModel
+    public: true
+    autowire: true
+    autoconfigure: false
+
+  fondy.request.check-payment:
+    parent: App\Component\Payment\Fondy\Request\RequestAbstract
+    class: App\Component\Payment\Fondy\Request\CheckoutRequest
+    public: true
+    autowire: true
+    autoconfigure: false
+  ###< check payment ###
+
+  ###> payment by token ###
+  fondy.request-model.payment-by-token:
+    class: App\Component\Payment\Fondy\Model\PaymentByTokenModel
+    parent: App\Component\Payment\Fondy\Model\AbstractModel
+    public: true
+    autowire: true
+    autoconfigure: false
+    arguments:
+      $serverCallbackUrl: '%fondy.callback_url%'
+      $currency: 'UAH'
+
+  fondy.request.payment-by-token:
+    parent: App\Component\Payment\Fondy\Request\RequestAbstract
+    class: App\Component\Payment\Fondy\Request\PaymentByTokenRequest
+    public: true
+    autowire: true
+    autoconfigure: false
+  ###< payment by token ###
+
+  fondy.locator:
+    class: Symfony\Component\DependencyInjection\ServiceLocator
+    arguments:
+      - '%fondy.action.new-payment%-%fondy.locator.type.model%': '@fondy.request-model.new-payment'
+        '%fondy.action.new-payment%-%fondy.locator.type.request%': '@fondy.request.new-payment'
+        '%fondy.action.new-payment%-%fondy.locator.type.handler%': '@App\Component\Payment\Fondy\Handler\PaymentHandler'
+        '%fondy.action.check-payment%-%fondy.locator.type.model%': '@fondy.request-model.check-payment'
+        '%fondy.action.check-payment%-%fondy.locator.type.request%': '@fondy.request.check-payment'
+        '%fondy.action.check-payment%-%fondy.locator.type.handler%': '@App\Component\Payment\Fondy\Handler\CheckoutHandler'
+        '%fondy.action.payment-by-token%-%fondy.locator.type.model%': '@fondy.request-model.payment-by-token'
+        '%fondy.action.payment-by-token%-%fondy.locator.type.request%': '@fondy.request.payment-by-token'
+        '%fondy.action.payment-by-token%-%fondy.locator.type.handler%': '@App\Component\Payment\Fondy\Handler\PaymentByTokenHandler'

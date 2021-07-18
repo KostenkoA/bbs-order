@@ -1,0 +1,13 @@
+enqueue:
+  transport:
+    default: 'sqs'
+    sqs:
+      key: '%amazon_s3.key%'
+      secret: '%amazon_s3.secret%'
+      token: ~
+      region: '%amazon_s3.region%'
+      retries: 3
+      version: '2012-11-05'
+      lazy: true
+  client:
+    traceable_producer: true

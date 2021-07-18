@@ -1,0 +1,5 @@
+enqueue:
+  transport:
+    default: '%env(ENQUEUE_DSN_REDIS)%'
+  client:
+    traceable_producer: true

@@ -1,0 +1,7 @@
+services:
+  _defaults:
+    public: true
+  test.App\Service\ProductService: '@App\Service\ProductService'
+  test.App\Service\User\UserService: '@App\Service\User\UserService'
+  test.App\Component\Payment\Method\Fondy: '@App\Component\Payment\Method\Fondy'
+  test.App\Producer\Order1CProducer: '@App\Producer\Order1CProducer'

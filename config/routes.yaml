@@ -1,0 +1,225 @@
+health_check:
+  path: /
+  controller: App\Controller\HealthCheckController::healthCheckAction
+  methods: [GET]
+
+admin_order_list:
+  path: /admin/order
+  controller: App\Controller\Admin\AdminOrderController::getOrderList
+  methods: [GET]
+admin_order:
+  path: /admin/order/{id}
+  controller: App\Controller\Admin\AdminOrderController::getById
+  requirements:
+    number: '[0-9]+'
+  methods: [GET]
+admin_post_order:
+  path: /admin/order/create/registered
+  controller: App\Controller\Admin\AdminOrderController::createByUser
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+admin_post_order_anon_register:
+  path: /admin/order/create/autoregister
+  controller: App\Controller\Admin\AdminOrderController::createByAnonRegister
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+admin_order_send_1c:
+  path: /admin/order/send-1c/{id}
+  controller: App\Controller\Admin\AdminOrderController::sendTo1c
+  requirements:
+    number: '[0-9]+'
+  methods: [POST]
+
+post_order_anon:
+  path: /public/anon/order
+  controller: App\Controller\OrderController::createByAnon
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+post_order_anon_autoregister:
+  path: /public/anon/order/register
+  controller: App\Controller\OrderController::createByAnonRegister
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+post_order_anon_one_click:
+  path: /public/anon/order/one-click
+  controller: App\Controller\OrderController::createByOneClick
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+
+post_order:
+  path: /public/order
+  controller: App\Controller\OrderController::create
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+order_list:
+  path: /public/order
+  controller: App\Controller\OrderController::getOrderList
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [GET]
+get_order:
+  path: /public/order/{hash}
+  controller: App\Controller\OrderController::getByHash
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  requirements:
+    hash: '[a-zA-Z0-9\-]+'
+  methods:  [GET]
+get_order_anon:
+  path: /public/anon/order/{hash}
+  controller: App\Controller\OrderController::getByHashAnon
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  requirements:
+    hash: '[a-zA-Z0-9\-]+'
+  methods:  [GET]
+
+payment_create:
+  path: /public/payment/new/{orderHash}
+  controller: App\Controller\PaymentController::create
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  requirements:
+    orderHash: '[a-zA-Z0-9\-]+'
+  methods:  [POST]
+
+payment_checkout:
+  path: /public/payment/checkout/{paymentHash}
+  controller: App\Controller\PaymentController::checkout
+  requirements:
+    paymentHash: '[a-zA-Z0-9\-]+'
+  methods:  [GET,POST]
+
+###> user card ###
+card_list:
+  path: /public/card
+  controller: App\Controller\CardController::getList
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [GET]
+
+card_create:
+  path: /public/card
+  controller: App\Controller\CardController::create
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [POST]
+
+card_delete:
+  path: /public/card/{hash}
+  controller: App\Controller\CardController::delete
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [DELETE]
+
+card_verification_payment_create:
+  path: /public/card/{cardHash}/verify
+  controller: App\Controller\PaymentController::cardVerifyCreate
+  requirements:
+    orderHash: '[a-zA-Z0-9\-]+'
+  methods:  [POST]
+
+###> user card ###
+
+###> subscription
+subscription_list:
+  path: /public/subscription
+  controller: App\Controller\SubscriptionController::getList
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [GET]
+
+subscription_default:
+  path: /public/subscription/default
+  controller: App\Controller\SubscriptionController::findDefault
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [GET]
+  requirements:
+    id: \d+
+
+subscription_find:
+  path: /public/subscription/{id}
+  controller: App\Controller\SubscriptionController::find
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [GET]
+  requirements:
+    id: \d+
+
+subscription_update:
+  path: /public/subscription/{id}
+  controller: App\Controller\SubscriptionController::update
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [PUT]
+  requirements:
+    id: \d+
+
+subscription_update_card:
+  path: /public/subscription/{id}/card
+  controller: App\Controller\SubscriptionController::updateCard
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [PUT]
+  requirements:
+    id: \d+
+
+subscription_delete:
+  path: /public/subscription/{id}
+  controller: App\Controller\SubscriptionController::delete
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [DELETE]
+  requirements:
+    id: \d+
+
+subscription_order_list:
+  path: /public/subscription/{id}/order
+  controller: App\Controller\SubscriptionController::getOrderList
+  condition: "request.headers.get('Project') matches '%alowed_project_match%'"
+  methods:  [GET]
+  requirements:
+    id: \d+
+
+admin_subscription_list:
+  path: /admin/subscription
+  controller: App\Controller\Admin\AdminSubscriptionController::getList
+  methods:  [GET]
+
+admin_subscription_planing:
+  path: /admin/subscription/product-planing
+  controller: App\Controller\Admin\AdminSubscriptionController::productPlanningList
+  methods:  [GET]
+
+admin_subscription_find:
+  path: /admin/subscription/{id}
+  controller: App\Controller\Admin\AdminSubscriptionController::find
+  methods:  [GET]
+  requirements:
+    id: \d+
+
+admin_subscription_update:
+  path: /admin/subscription/{id}
+  controller: App\Controller\Admin\AdminSubscriptionController::update
+  methods:  [PUT]
+  requirements:
+    id: \d+
+
+admin_subscription_delete:
+  path: /admin/subscription/{id}
+  controller: App\Controller\Admin\AdminSubscriptionController::delete
+  methods:  [DELETE]
+  requirements:
+    id: \d+
+
+admin_subscription_order_list:
+  path: /admin/subscription/{id}/order
+  controller: App\Controller\Admin\AdminSubscriptionController::getOrderList
+  methods:  [GET]
+  requirements:
+    id: \d+
+
+admin_subscription_order_create:
+  path: /admin/subscription/{id}/order
+  controller: App\Controller\Admin\AdminSubscriptionController::createOrder
+  methods:  [POST]
+  requirements:
+    id: \d+
+
+
+###< subscription
+
+###> check basket
+check_basket:
+  path: /public/basket/check
+  controller: App\Controller\BasketController::checkBasket
+  methods:  [POST]
+###< check basket
